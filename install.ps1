@@ -21,8 +21,8 @@ if (!(Test-Path $InstallDir)) {
 Set-Location $InstallDir
 
 Write-Host "Downloading server files..."
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Santaslileper/hear-beat-test/main/server.js" -OutFile "$InstallDir\server.js"
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Santaslileper/hear-beat-test/main/package.json" -OutFile "$InstallDir\package.json"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Santaslileper/hear-beat-test/master/server.js" -OutFile "$InstallDir\server.js"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Santaslileper/hear-beat-test/master/package.json" -OutFile "$InstallDir\package.json"
 
 Write-Host "Installing dependencies..."
 npm install --silent
