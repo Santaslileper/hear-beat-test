@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heartbeat Client</title>
+  <style>
+    body { 
+      font-family: 'Inter', system-ui, -apple-system, sans-serif; 
+      background: #0f172a; 
+      color: #f8fafc; 
+      text-align: center; 
+      padding: 10vmin 5vmin; 
+      margin: 0;
+      min-height: 100vh;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 { font-size: 2.5rem; margin-bottom: 2rem; color: #f1f5f9; }
+    #status { 
+      font-size: 1.25rem; 
+      font-weight: 600;
+      padding: 1rem 2rem; 
+      border-radius: 9999px; 
+      background: #1e293b; 
+      display: inline-flex; 
+      align-items: center;
+      gap: 0.75rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); 
+      transition: all 0.3s ease;
+    }
+    .connected { color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+    .disconnected { color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+    
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .connected .status-dot {
+      background-color: #10b981;
+      box-shadow: 0 0 12px #10b981;
+    }
+    .disconnected .status-dot {
+      background-color: #ef4444;
+      box-shadow: 0 0 12px #ef4444;
+    }
+
+    #message { 
+      margin-top: 3rem; 
+      font-size: 1.25rem; 
+      color: #94a3b8; 
+      line-height: 1.6;
+      max-width: 600px;
+    }
+    .heart { 
+      display: inline-block; 
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+    .heart.beating {
+      animation: beat 1s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes beat { 
+      0% { transform: scale(1); }
+      100% { transform: scale(1.3); } 
+    }
+    .time-display {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 1.5rem;
+      color: #e2e8f0;
+      margin-top: 0.5rem;
+      display: block;
+    }
+    .install-instruction {
+      background: #1e293b;
+      padding: 1.5rem;
+      border-radius: 12px;
+      border: 1px solid #334155;
+      margin-top: 2rem;
+      text-align: left;
+    }
+    code {
+      background: #0f172a;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #38bdf8;
+      display: block;
+      margin-top: 1rem;
+      border: 1px solid #334155;
+      user-select: all;
+    }
+  </style>
+</head>
+<body>
+  <h1>Heartbeat Client</h1>
+  
+  <div id="status" class="disconnected">
+    <div class="status-dot"></div>
+    <span id="status-text">Connecting...</span>
+  </div>
+  
+  <div id="message">
+    <div style="font-size: 1.5rem; color: #f8fafc; margin-bottom: 1rem;">Client is required to use this.</div>
+    Please run the local server.<br>
+    
+    <div class="install-instruction">
+      To install and run the local server, open PowerShell and run:
+      <code>irm https://raw.githubusercontent.com/Santaslileper/hear-beat-test/main/install.ps1 | iex</code>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const statusText = document.getElementById("status-text");
+    const messageEl = document.getElementById("message");
+    let ws;
+
+    const disconnectedHTML = `
+      <div style="font-size: 1.5rem; color: #f8fafc; margin-bottom: 1rem;">Client is required to use this.</div>
+      Please run the local server.<br><br>
+      <div style="font-size: 1rem;">Retrying connection...</div>
+      
+      <div class="install-instruction">
+        To install and run the local server, open PowerShell and run:
+        <code>irm https://raw.githubusercontent.com/Santaslileper/hear-beat-test/main/install.ps1 | iex</code>
+      </div>
+    `;
+
+    function connect() {
+      // Connect to the local server
+      ws = new WebSocket("ws://localhost:3000");
+
+      ws.onopen = () => {
+        statusText.textContent = "Connected";
+        statusEl.className = "connected";
+        messageEl.innerHTML = `
+          <div class="heart beating">❤️</div>
+          <div>Waiting for heartbeat...</div>
+        `;
+        console.log("Connected to local heartbeat server.");
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "heartbeat") {
+            const timeStr = new Date(data.time).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+            messageEl.innerHTML = `
+              <div class="heart beating">❤️</div>
+              <div>Heartbeat received at</div>
+              <strong class="time-display">${timeStr}</strong>
+            `;
+          }
+        } catch(e) {
+          console.error("Invalid heartbeat format", e);
+        }
+      };
+
+      ws.onclose = () => {
+        statusText.textContent = "Disconnected";
+        statusEl.className = "disconnected";
+        messageEl.innerHTML = disconnectedHTML;
+        
+        // Try to reconnect every 3 seconds
+        setTimeout(connect, 3000);
+      };
+
+      ws.onerror = (err) => {
+        console.error("WebSocket error", err);
+        ws.close();
+      };
+    }
+
+    // Initialize connection
+    connect();
+  </script>
+</body>
+</html>
